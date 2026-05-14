@@ -4,6 +4,7 @@ import { summarizeArticle } from '../utils/summarize'
 import { fetchArticleText } from '../utils/fetchArticle'
 
 export default defineEventHandler(async (event) => {
+  // リクエスト内容を取得
   const body = await readBody<{ url?: string; message?: string }>(event)
 
   if (!body.url) {
@@ -13,28 +14,50 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // URL形式チェック
+  try {
+    new URL(body.url)
+  } catch {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid URL'
+    })
+  }
+
   const config = useRuntimeConfig()
   const slug = nanoid(8)
 
   let summary = ''
+  let articleTitle = '読んでほしい記事'
 
   try {
-    const articleText = await fetchArticleText(body.url)
+    // 記事本文を取得して要約
+    const article = await fetchArticleText(body.url)
+
+    articleTitle = article.title
 
     summary = await summarizeArticle({
       url: body.url,
       message: body.message || '',
-      articleText,
+      articleText: article.text,
       apiKey: config.geminiApiKey
     })
-  } catch {
+  } catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to summarize article'
+      statusMessage: 'Failed to summarize article',
+      data: {
+        message: error?.message,
+        name: error?.name,
+        code: error?.code,
+        status: error?.status,
+        body: error?.body
+      }
     })
   }
 
   try {
+    // Notionへ保存
     const notion = createNotionClient(config.notionToken)
 
     await notion.pages.create({
@@ -46,11 +69,12 @@ export default defineEventHandler(async (event) => {
           title: [
             {
               text: {
-                content: body.message || '読んでほしい記事'
+                content: articleTitle
               }
             }
           ]
         },
+
         Slug: {
           rich_text: [
             {
@@ -60,9 +84,11 @@ export default defineEventHandler(async (event) => {
             }
           ]
         },
+
         URL: {
           url: body.url
         },
+
         Message: {
           rich_text: [
             {
@@ -72,6 +98,7 @@ export default defineEventHandler(async (event) => {
             }
           ]
         },
+
         Summary: {
           rich_text: [
             {
@@ -81,6 +108,7 @@ export default defineEventHandler(async (event) => {
             }
           ]
         },
+
         CreatedAt: {
           date: {
             start: new Date().toISOString()
@@ -95,6 +123,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // 読む用URLを返却
   const readUrl = `${config.public.appBaseUrl}/read/${slug}`
 
   return {

@@ -6,14 +6,17 @@ export async function summarizeArticle(params: {
   articleText: string
   apiKey: string
 }) {
+  // APIキー確認
   if (!params.apiKey) {
     throw new Error('GEMINI_API_KEY is missing')
   }
 
+  // Geminiクライアント生成
   const ai = new GoogleGenAI({
     apiKey: params.apiKey
   })
 
+  // 記事を要約
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: `
@@ -24,9 +27,6 @@ export async function summarizeArticle(params: {
 URL:
 ${params.url}
 
-送る人からのメッセージ:
-${params.message || 'なし'}
-
 記事本文:
 ${params.articleText}
 
@@ -36,6 +36,7 @@ ${params.articleText}
 - 300〜500文字
 - 難しい言葉は説明
 - 最後に「大事なポイント」を3つ
+- 送る人からのメッセージは要約に含めない
 - 元記事の全文転載はしない
 `
   })

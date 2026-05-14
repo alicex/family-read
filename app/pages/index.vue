@@ -1,30 +1,40 @@
 <script setup lang="ts">
-const url = ref('')
-const message = ref('')
-const loading = ref(false)
-const result = ref<null | {
+type CreateArticleResponse = {
+  slug: string
   readUrl: string
   smsText: string
-}>(null)
+}
 
+// フォーム状態
+const url = ref('')
+const message = ref('')
+
+// UI状態
+const loading = ref(false)
 const errorMessage = ref('')
 
+// 作成結果
+const result = ref<CreateArticleResponse | null>(null)
+
+// 記事を登録
 const createArticle = async () => {
   loading.value = true
   result.value = null
   errorMessage.value = ''
 
   try {
-    result.value = await $fetch('/api/create', {
+    // APIへ送信
+    result.value = await $fetch<CreateArticleResponse>('/api/create', {
       method: 'POST',
       body: {
         url: url.value,
         message: message.value
       }
     })
-  } catch (error: any) {
+  } catch (error) {
+    // エラー表示
     console.error(error)
-    errorMessage.value = JSON.stringify(error?.data || error, null, 2)
+    errorMessage.value = '記事の登録に失敗しました。URLを確認してもう一度お試しください。'
   } finally {
     loading.value = false
   }
@@ -37,17 +47,18 @@ const createArticle = async () => {
       記事を登録
     </h1>
 
+    <!-- 登録フォーム -->
     <form class="mt-6 space-y-4" @submit.prevent="createArticle">
       <div>
         <label class="block text-sm font-bold">
           記事URL
         </label>
+
         <input
           v-model="url"
           type="url"
           required
           class="mt-1 w-full rounded border px-3 py-2"
-          placeholder="https://example.com/article"
         >
       </div>
 
@@ -55,11 +66,11 @@ const createArticle = async () => {
         <label class="block text-sm font-bold">
           メッセージ
         </label>
+
         <textarea
           v-model="message"
           class="mt-1 w-full rounded border px-3 py-2"
           rows="4"
-          placeholder="これ読んでみて！"
         />
       </div>
 
@@ -72,6 +83,15 @@ const createArticle = async () => {
       </button>
     </form>
 
+    <!-- エラー表示 -->
+    <p
+      v-if="errorMessage"
+      class="mt-4 rounded bg-red-50 p-4 text-sm text-red-700"
+    >
+      {{ errorMessage }}
+    </p>
+
+    <!-- 作成結果 -->
     <section v-if="result" class="mt-8 rounded border p-4">
       <p class="font-bold">
         SMSで送る内容
