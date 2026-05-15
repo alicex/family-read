@@ -9,6 +9,8 @@ npm install
 cp .env.example .env
 npm run dev
 
-## About
+
+---
+
 https://aistudio.google.com/
 https://www.notion.so/developers/

@@ -39,6 +39,10 @@ const createArticle = async () => {
     loading.value = false
   }
 }
+//タイトル
+useHead({
+  title: '記事を登録 | Family Reader'
+})
 </script>
 
 <template>
