@@ -31,11 +31,12 @@ export default defineEventHandler(async (event) => {
   let articleTitle = '読んでほしい記事'
 
   try {
-    // 記事本文を取得して要約
+    // 記事本文を取得
     const article = await fetchArticleText(body.url)
 
     articleTitle = article.title
 
+    // Geminiで要約
     summary = await summarizeArticle({
       url: body.url,
       message: body.message || '',
@@ -43,6 +44,8 @@ export default defineEventHandler(async (event) => {
       apiKey: config.geminiApiKey
     })
   } catch (error: any) {
+    console.error('SUMMARIZE ERROR', error)
+
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to summarize article',
@@ -51,7 +54,8 @@ export default defineEventHandler(async (event) => {
         name: error?.name,
         code: error?.code,
         status: error?.status,
-        body: error?.body
+        body: error?.body,
+        stack: error?.stack
       }
     })
   }
@@ -64,12 +68,13 @@ export default defineEventHandler(async (event) => {
       parent: {
         database_id: config.notionDatabaseId
       },
+
       properties: {
         Title: {
           title: [
             {
               text: {
-                content: articleTitle
+                content: articleTitle.slice(0, 100)
               }
             }
           ]
@@ -93,7 +98,7 @@ export default defineEventHandler(async (event) => {
           rich_text: [
             {
               text: {
-                content: body.message || ''
+                content: (body.message || '').slice(0, 1000)
               }
             }
           ]
@@ -103,7 +108,8 @@ export default defineEventHandler(async (event) => {
           rich_text: [
             {
               text: {
-                content: summary.slice(0, 1900)
+                // Notion制限対策
+                content: summary.slice(0, 1500)
               }
             }
           ]
@@ -116,14 +122,24 @@ export default defineEventHandler(async (event) => {
         }
       }
     })
-  } catch {
+  } catch (error: any) {
+    console.error('NOTION ERROR', error)
+
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to create Notion page'
+      statusMessage: 'Failed to create Notion page',
+      data: {
+        message: error?.message,
+        name: error?.name,
+        code: error?.code,
+        status: error?.status,
+        body: error?.body,
+        stack: error?.stack
+      }
     })
   }
 
-  // 読む用URLを返却
+  // 読む用URL
   const readUrl = `${config.public.appBaseUrl}/read/${slug}`
 
   return {
